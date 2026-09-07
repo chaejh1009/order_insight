@@ -1,0 +1,70 @@
+{
+  "generated_at": "2026-09-07T17:17:11.246011+09:00",
+  "order_count": 12,
+  "preview": [
+    {
+      "order_id": 1,
+      "product_id": "A",
+      "quantity": 1,
+      "amount": 100
+    },
+    {
+      "order_id": 2,
+      "product_id": "A",
+      "quantity": 2,
+      "amount": 200
+    },
+    {
+      "order_id": 3,
+      "product_id": "A",
+      "quantity": 3,
+      "amount": 300
+    },
+    {
+      "order_id": 4,
+      "product_id": "B",
+      "quantity": 1,
+      "amount": 100
+    },
+    {
+      "order_id": 5,
+      "product_id": "B",
+      "quantity": 2,
+      "amount": 200
+    },
+    {
+      "order_id": 6,
+      "product_id": "B",
+      "quantity": 3,
+      "amount": 300
+    },
+    {
+      "order_id": 7,
+      "product_id": "A",
+      "quantity": 4,
+      "amount": 400
+    },
+    {
+      "order_id": 8,
+      "product_id": "A",
+      "quantity": 5,
+      "amount": 500
+    },
+    {
+      "order_id": 9,
+      "product_id": "B",
+      "quantity": 4,
+      "amount": 400
+    },
+    {
+      "order_id": 10,
+      "product_id": "B",
+      "quantity": 5,
+      "amount": 500
+    }
+  ],
+  "by_product": [],
+  "by_day": [],
+  "page_views": [],
+  "by_category": []
+}

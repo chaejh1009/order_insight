@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Order Insight{% endblock %}</title>
+  <style>
+    body { max-width: 960px; margin: 32px auto; padding: 0 16px; font-family: sans-serif; }
+    nav { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
+    article { padding: 16px 0; border-bottom: 1px solid #ddd; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    input { width: 72px; }
+  </style>
+</head>
+<body>
+  <nav aria-label="주 메뉴">
+    <a href="{% url 'shop:products' %}">상품·주문</a>
+    <a href="{% url 'shop:orders' %}">주문 내역</a>
+    <a href="{% url 'analytics:dashboard' %}">매출 대시보드</a>
+  </nav>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

@@ -1,0 +1,16 @@
+[
+  {"model":"shop.product","pk":"A","fields":{"name":"커피","category":"음료","unit_price":100}},
+  {"model":"shop.product","pk":"B","fields":{"name":"빵","category":"식품","unit_price":100}},
+  {"model":"shop.order","pk":1,"fields":{"product":"A","quantity":1,"unit_price":100,"ordered_at":"2026-09-07T10:00:00+09:00"}},
+  {"model":"shop.order","pk":2,"fields":{"product":"A","quantity":2,"unit_price":100,"ordered_at":"2026-09-07T10:01:00+09:00"}},
+  {"model":"shop.order","pk":3,"fields":{"product":"A","quantity":3,"unit_price":100,"ordered_at":"2026-09-07T10:02:00+09:00"}},
+  {"model":"shop.order","pk":4,"fields":{"product":"B","quantity":1,"unit_price":100,"ordered_at":"2026-09-07T10:03:00+09:00"}},
+  {"model":"shop.order","pk":5,"fields":{"product":"B","quantity":2,"unit_price":100,"ordered_at":"2026-09-07T10:04:00+09:00"}},
+  {"model":"shop.order","pk":6,"fields":{"product":"B","quantity":3,"unit_price":100,"ordered_at":"2026-09-07T10:05:00+09:00"}},
+  {"model":"shop.order","pk":7,"fields":{"product":"A","quantity":4,"unit_price":100,"ordered_at":"2026-09-08T10:00:00+09:00"}},
+  {"model":"shop.order","pk":8,"fields":{"product":"A","quantity":5,"unit_price":100,"ordered_at":"2026-09-08T10:01:00+09:00"}},
+  {"model":"shop.order","pk":9,"fields":{"product":"B","quantity":4,"unit_price":100,"ordered_at":"2026-09-08T10:02:00+09:00"}},
+  {"model":"shop.order","pk":10,"fields":{"product":"B","quantity":5,"unit_price":100,"ordered_at":"2026-09-08T10:03:00+09:00"}},
+  {"model":"shop.order","pk":11,"fields":{"product":"B","quantity":6,"unit_price":100,"ordered_at":"2026-09-08T10:04:00+09:00"}},
+  {"model":"shop.order","pk":12,"fields":{"product":"B","quantity":7,"unit_price":100,"ordered_at":"2026-09-08T10:05:00+09:00"}}
+]

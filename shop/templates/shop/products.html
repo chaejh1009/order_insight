@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}상품·주문 · Order Insight{% endblock %}
+{% block content %}
+  <h1>상품·주문</h1>
+  {% for product in products %}
+  <article>
+    <h2>{{ product.id }} · {{ product.name }}</h2>
+    <p>{{ product.category }} · w{{ product.unit_price }}원 / 개</p>
+    <form action="{% url 'shop:products' %}" method="post">
+      {% csrf_token %}
+      <input type="hidden" name="product_id" value="{{ product.id }}">
+      <label for="quantity-{{ product.id }}">수량</label>
+      <input id="quantity-{{ product.id }}" type="number" name="quantity" value="1" min="1" required>
+      <button type="submit">주문하기</button>
+    </form>
+  </article>
+  {% endfor %}
+{% endblock %}
