@@ -9,9 +9,12 @@ Django와 MySQL로 상품·주문을 관리하고, Apache Spark로 주문 데이
 - 상품 페이지 접속 로그 기록
 - 주문 CSV, 상품 JSONL, 접속 로그를 Spark 입력 데이터로 내보내기
 - Spark에서 주문 금액·주문일 계산 및 특정 상품 필터링
+- 상품별·일자별 주문 수와 매출 집계
+- 접속 로그를 파싱해 일자별 접속 건수와 처리 시간 합계 계산
 - 처리 결과를 JSON 파일로 저장하고 Django 대시보드에서 조회
+- Python의 `map`·`reduce`와 Spark 집계 실행 계획 비교 실습
 
-현재 Spark 배치는 전체 주문 수와 주문 미리보기 최대 10건을 저장합니다. 상품별·일별·카테고리별 집계와 페이지 조회 수는 아직 빈 배열로 남아 있습니다.
+현재 Spark 배치는 전체 주문 수, 주문 ID 오름차순 미리보기 최대 10건, 상품별·일자별 매출, 일자별 접속 통계를 저장합니다. 카테고리별 집계(`by_category`)는 아직 빈 배열입니다.
 
 ## 준비 사항
 
@@ -93,9 +96,9 @@ MySQL 상품·주문 + 상품 페이지 접속 로그
   → /dashboard/
 ```
 
-현재 배치는 주문 CSV와 상품 JSONL을 읽으며, 접속 로그 분석은 아직 구현되어 있지 않습니다.
+현재 배치는 주문 CSV, 상품 JSONL, 접속 로그를 모두 읽습니다. 상품 JSONL은 콘솔 조회에 사용하며, 매출 집계에는 아직 상품명·카테고리를 결합하지 않습니다.
 
-`run_spark_batch`는 `--cores 1` 또는 `--cores 2`를 지원하고, `--script`로 실행할 스크립트를 지정할 수 있습니다. 두 명령 모두 `--data-dir`로 데이터 경로를 바꿀 수 있지만, 웹 대시보드는 기본 `data/marts/dashboard.json`을 읽습니다.
+`run_spark_batch`는 `--cores 1` 또는 `--cores 2`를 지원하고, `--script`로 실행할 스크립트를 지정할 수 있습니다. 실행 후 Spark 제출부터 프로세스 종료까지 걸린 시간을 출력합니다. 두 명령 모두 `--data-dir`로 데이터 경로를 바꿀 수 있지만, 웹 대시보드는 기본 `data/marts/dashboard.json`을 읽습니다. 접속 로그를 내보낼 때는 기본 `data/raw/access.log`를 원본으로 사용합니다.
 
 관리 명령은 Spark master를 지정하지 않습니다. 로컬 실행을 명시하려면 내보내기 후 직접 제출할 수 있습니다.
 
@@ -106,13 +109,58 @@ MySQL 상품·주문 + 상품 페이지 접속 로그
   --data-dir ./data
 ```
 
+### 대시보드 결과와 현재 구현 범위
+
+| JSON 항목 | 저장 내용 | 화면 표시 |
+| --- | --- | --- |
+| `generated_at`, `order_count` | 집계 시각, 전체 주문 수 | 집계 기준 및 주문 수 |
+| `preview` | 주문 ID, 상품 ID, 수량, 금액 최대 10건 | 주문 미리보기 |
+| `by_product` | 상품별 주문 수, 매출 | 상품별 매출 |
+| `by_day` | 주문일별 주문 수, 매출 | 일자별 매출 |
+| `page_views` | 접속일별 로그 건수, 처리 시간 합계(`total_duration_ms`) | 접속 건수만 표시 |
+| `by_category` | 빈 배열 | 표시하지 않음 |
+
+`sales_batch.py`는 JSON 저장 후 상품별 평균 주문 금액과 판매 수량을 별도로 계산하고, 실행 계획(`explain()`)과 결과를 콘솔에 출력합니다. 이 값들은 JSON에 저장되지 않아 대시보드의 평균 주문 금액 열에는 숫자가 표시되지 않습니다.
+
+## Map/Reduce와 부분 집계 실습
+
+### Python으로 집계 과정 확인
+
+다음 스크립트는 Python 표준 라이브러리만 사용하며 MySQL이나 Spark 없이 실행할 수 있습니다.
+
+```bash
+python serialize/raw_python.py
+python serialize/parallel_process.py
+```
+
+- `raw_python.py`: 주문 12건을 두 묶음으로 나누어 `map`·`reduce`로 부분 집계한 뒤, 결과를 다시 합칩니다. 최종 결과는 A 상품 주문 5건·매출 1,500, B 상품 주문 7건·매출 2,800입니다. 실행은 단일 Python 프로세스에서 순차적으로 이루어집니다.
+- `parallel_process.py`: 입력 1,000만 행, 상품 100개, 파티션 8개라는 가정으로 부분 집계 결과의 최대 행 수(800)와 병렬 처리 예상 시간(25초)을 계산합니다. 실제 병렬 처리나 성능 측정 코드는 아닙니다.
+
+### Spark로 같은 데이터 집계
+
+```bash
+python manage.py run_spark_batch --script spark_jobs/map_reduce_demo.py --cores 2
+```
+
+`map_reduce_demo.py`는 코드에 정의된 주문 12건을 2개 파티션으로 구성하고, 상품별 주문 수·매출·평균 주문 금액과 실행 계획을 출력합니다. 평균 주문 금액은 A 상품 300, B 상품 400입니다. 관리 명령이 전달하는 `--data-dir` 인자는 받지만 파일을 읽거나 대시보드를 갱신하지 않습니다.
+
+로컬 실행을 명시하려면 다음과 같이 직접 제출합니다.
+
+```bash
+/absolute/path/to/spark/bin/spark-submit \
+  --master 'local[2]' \
+  spark_jobs/map_reduce_demo.py \
+  --data-dir ./data
+```
+
 ## 프로젝트 구조
 
 ```text
 order_insight/       Django 설정, 루트 URL, 공통 템플릿
 shop/                상품·주문 모델, 화면, 실습 fixture
 analytics/           대시보드 화면 및 데이터 관리 명령
-spark_jobs/          Spark 주문 처리 스크립트
+spark_jobs/          매출·접속 로그 배치 및 Map/Reduce 집계 실습
+serialize/           Python 부분 집계와 병렬 처리 가정 계산 실습
 data/raw/            Spark 입력 CSV·JSONL 및 접속 로그
 data/marts/          대시보드용 처리 결과 JSON
 manage.py            Django 관리 명령 진입점
