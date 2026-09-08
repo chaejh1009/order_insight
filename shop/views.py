@@ -3,6 +3,7 @@ from time import perf_counter
 from django.conf import settings
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 
 from .models import Order, Product
 
@@ -30,3 +31,14 @@ def products(request):
 def orders(request):
     recent_orders = Order.objects.select_related("product").order_by("-id")[:50]
     return render(request, "shop/orders.html", {"orders": recent_orders})
+
+def formview(request):
+    return render(request, "shop/form.html")
+
+@csrf_exempt
+def formprocess(request):
+    data = request.POST["test1"]
+    data2 = request.POST["encore"]
+    print("당신이 폼으로 보낸 데이터 : ", data)
+    print("당신이 폼으로 보낸 데이터2 : ", data2)
+    

@@ -1,0 +1,11 @@
+<!-- form태그는 데이터를 보낼곳을 action으로, 우리가 urls.py에 정의한 그 주소로 히팅됩니다.
+ method는 GET, POST 둘 중 하나를 쓸 수 있습니다. -->
+<form action="http://127.0.0.1:8000/formprocess" method="post">
+    <!-- input은 사용자에게 입력받을 자료를 정의합니다. 아래는 숫자(type="number")를 변수 test1(name="test1")에 담아 보냅니다. -->
+    test1 숫자 : <input type="number" name="test1" />
+    <!-- 글 적게 하고싶으면 type="text"-->
+    엔코아 값 : <input type="text" name="encore" required />
+
+    <!-- 제출버튼을 누르면 input에 정의된 변수명에 값이 담겨서 action에 적힌 목적지로 발송됩니다.-->
+    <button>제출버튼</button>
+</form>

@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-09-07T17:17:11.246011+09:00",
-  "order_count": 12,
+  "generated_at": "2026-09-08T17:27:39+09:00",
+  "order_count": 13,
   "preview": [
     {
       "order_id": 1,
@@ -63,8 +63,41 @@
       "amount": 500
     }
   ],
-  "by_product": [],
-  "by_day": [],
-  "page_views": [],
+  "by_product": [
+    {
+      "product_id": "A",
+      "order_count": 6,
+      "revenue": 3000
+    },
+    {
+      "product_id": "B",
+      "order_count": 7,
+      "revenue": 2800
+    }
+  ],
+  "by_day": [
+    {
+      "order_date": "2026-09-07",
+      "order_count": 6,
+      "revenue": 1200
+    },
+    {
+      "order_date": "2026-09-08",
+      "order_count": 7,
+      "revenue": 4600
+    }
+  ],
+  "page_views": [
+    {
+      "visit_date": "2026-09-07",
+      "page_views": 5,
+      "total_duration_ms": 78
+    },
+    {
+      "visit_date": "2026-09-08",
+      "page_views": 7,
+      "total_duration_ms": 112
+    }
+  ],
   "by_category": []
 }
