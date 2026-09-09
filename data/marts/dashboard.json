@@ -1,5 +1,12 @@
 {
-  "generated_at": "2026-09-08T17:27:39+09:00",
+  "generated_at": "2026-09-09T17:07:43+09:00",
+  "overall": {
+    "order_count": 13,
+    "total_revenue": 5800,
+    "average_order_amount": 446.15384615384613,
+    "max_order_amount": 1500,
+    "min_order_amount": 100
+  },
   "order_count": 13,
   "preview": [
     {
@@ -66,13 +73,19 @@
   "by_product": [
     {
       "product_id": "A",
+      "product_name": "커피",
+      "category": "음료",
+      "revenue": 3000,
       "order_count": 6,
-      "revenue": 3000
+      "average_order_amount": 500.0
     },
     {
       "product_id": "B",
+      "product_name": "빵",
+      "category": "식품",
+      "revenue": 2800,
       "order_count": 7,
-      "revenue": 2800
+      "average_order_amount": 400.0
     }
   ],
   "by_day": [
@@ -95,9 +108,20 @@
     },
     {
       "visit_date": "2026-09-08",
-      "page_views": 7,
-      "total_duration_ms": 112
+      "page_views": 9,
+      "total_duration_ms": 152
     }
   ],
-  "by_category": []
+  "by_category": [
+    {
+      "category": "식품",
+      "order_count": 7,
+      "revenue": 2800
+    },
+    {
+      "category": "음료",
+      "order_count": 6,
+      "revenue": 3000
+    }
+  ]
 }

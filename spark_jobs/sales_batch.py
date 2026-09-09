@@ -24,6 +24,9 @@ spark = (
     .getOrCreate()
 )
 
+# INFO 레벨 로그 안 보기
+spark.sparkContext.setLogLevel("WARN")
+
 # 주문 스키마 설정하기
 order_schema = StructType([
     StructField("order_id", LongType()),
@@ -111,6 +114,49 @@ print("="*20, "날짜별 방문트래픽수", "="*20)
 page_views.orderBy("visit_date").show()
 
 
+
+
+print("=" * 50, "조인된 데이터로 집계하기 시작", "=" * 50)
+enriched = orders.join(F.broadcast(products), on="product_id", how="inner")
+enriched.select("order_id", "product_id", "category", "amount").orderBy("order_id").show()
+# 집계함수에 파생컬럼을 생성합니다.(.withColumn())
+by_product = orders.groupBy("product_id").agg(
+    F.count("*").alias("order_count"),
+    F.sum("amount").alias("revenue"),
+).withColumn(
+    "average_order_amount", F.col("revenue") / F.col("order_count")
+)
+
+by_product = enriched.groupBy("product_id", "name", "category").agg(
+    F.sum("amount").alias("revenue"),
+    F.count("*").alias("order_count"),
+).withColumnRenamed("name", "product_name").withColumn(
+    "average_order_amount", F.col("revenue") / F.col("order_count")
+)
+
+# by_product.explain()
+
+by_product.filter(F.col("category") == "음료").orderBy("product_id").show()
+print("=" * 50, "조인된 데이터로 집계하기 끝", "=" * 50)
+
+
+by_category = enriched.groupBy("category").agg(
+    F.count("*").alias("order_count"),
+    F.sum("amount").alias("revenue"),
+)
+
+category_rows = by_category.orderBy("category").collect()
+print([row.asDict() for row in category_rows])
+
+# 추가 지표 입력 예시용
+overall = orders.agg(
+    F.count("*").alias("order_count"),
+    F.sum("amount").alias("total_revenue"),
+    F.avg("amount").alias("average_order_amount"),
+    F.max("amount").alias("max_order_amount"),
+    F.min("amount").alias("min_order_amount"),
+).first().asDict()
+
 preview = [
     row.asDict()
     for row in orders.select("order_id", "product_id", "quantity", "amount")
@@ -120,12 +166,13 @@ preview = [
 ]
 summary = {
     "generated_at": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(),
+    "overall": overall,
     "order_count": orders.count(),
     "preview": preview,
     "by_product": [row.asDict() for row in by_product.orderBy("product_id").collect()],
     "by_day": [row.asDict() for row in by_day.orderBy("order_date").collect()],
     "page_views": [row.asDict() for row in page_views.orderBy("visit_date").collect()],
-    "by_category": [],
+    "by_category": [row.asDict() for row in by_category.orderBy("category").collect()],
 }
 summary["generated_at"] = datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds")
 output_dir = data_dir / "marts"
@@ -134,26 +181,13 @@ with (output_dir / "dashboard.json").open("w", encoding="utf-8") as stream:
     json.dump(summary, stream, ensure_ascii=False, indent=2)
 
 
-# 집계함수에 파생컬럼을 생성합니다.(.withColumn())
-by_product = orders.groupBy("product_id").agg(
-    F.count("*").alias("order_count"),
-    F.sum("amount").alias("revenue"),
-).withColumn(
-    "average_order_amount", F.col("revenue") / F.col("order_count")
-)
+# by_product2 = orders.groupBy("product_id").agg(
+#     F.sum("quantity").alias("sold_quantity")
+# )
 
-by_product.explain()
+# # by_product2.explain()
 
-by_product.orderBy("product_id").show()
-
-
-by_product2 = orders.groupBy("product_id").agg(
-    F.sum("quantity").alias("sold_quantity")
-)
-
-by_product2.explain()
-
-by_product2.show()
+# by_product2.show()
 
 # # 시간 측정을 위한 csv파일 가져오기.
 # started = perf_counter()
@@ -169,6 +203,148 @@ by_product2.show()
 # result = measured_summary.collect()
 # print("읽기·집계·결과 수신 초:", perf_counter() - started)
 # print(result)
+
+# 7일차 관찰 시작
+# sample_orders = orders.filter(F.col("order_id") <= 12)
+# #print("=" * 50)
+# #print("all_rows =", orders.count())
+# #print("=" * 50)
+# #print("sample_rows =", sample_orders.count())
+# print("=" * 50)
+# sample_orders.select("order_id", "product_id", "amount").orderBy("order_id").show()
+
+# #print("=" * 50, "파티션 개수 조회 시작", "=" * 50)
+# #print("input_partitions =", sample_orders.rdd.getNumPartitions())
+
+# print("=" * 50, "파티션 세부 데이터 조회", "=" * 50)
+# partition_rows = sample_orders.select(
+#     "order_id",
+#     "product_id",
+#     "amount",
+#     F.spark_partition_id().alias("partition_id"),
+# )
+# partition_rows.show()
+
+# print("=" * 50, "파티션별 할당 데이터 개수 조회", "=" * 50)
+# partition_sizes = partition_rows.groupBy("partition_id").agg(
+#     F.count("*").alias("row_count")
+# )
+# partition_sizes.orderBy("partition_id").show()
+
+# print("=" * 50, "orders 데이터에 대한 4개 파티션 분할여부 확인", "=" * 50)
+# split_orders = sample_orders.repartition(4)
+# print("split_partitions =", split_orders.rdd.getNumPartitions())
+
+# print("=" * 50, "파티션 배정 여부 확인과 파티션별 세부 데이터 확인.", "=" * 50)
+# split_rows = split_orders.select(
+#     "order_id", "product_id", F.spark_partition_id().alias("partition_id")
+# )
+# split_rows.show()
+# split_rows.groupBy("partition_id").agg(
+#     F.count("*").alias("row_count")
+# ).orderBy("partition_id").show()
+
+# print("=" * 50, "나눠진 파티션 병합하기.", "=" * 50)
+# merged_orders = split_orders.coalesce(2)
+# print("merged_partitions =", merged_orders.rdd.getNumPartitions())
+
+# # print("=" * 50, "파티션 분할 정도별 계획 확인", "=" * 50)
+# # print("split plan")
+# # split_orders.explain("formatted")
+# # print("merged plan")
+# # merged_orders.explain("formatted")
+
+# print("=" * 50, "병합전후 파티션의 실제 데이터 row수가 동일함을 확인.", "=" * 50)
+# print("split_rows =", split_orders.count())
+# print("merged_rows =", merged_orders.count())
+# merged_orders.select(
+#     "order_id", "product_id", F.spark_partition_id().alias("partition_id")
+# ).show()
+
+# print("=" * 50, "파티션 개수가 달라도 결과는 달라지지 않음을 확인.", "=" * 50)
+# split_sales = split_orders.groupBy("product_id").agg(
+#     F.sum("amount").alias("revenue")
+# )
+# merged_sales = merged_orders.groupBy("product_id").agg(
+#     F.sum("amount").alias("revenue")
+# )
+# split_sales.orderBy("product_id").show()
+# merged_sales.orderBy("product_id").show()
+
+# print("=" * 50, "sample주문을 상품별로 묶고, 주문횟수와 총매출 계산", "=" * 50)
+# sample_summary = sample_orders.groupBy("product_id").agg(
+#     F.count("*").alias("order_count"),
+#     F.sum("amount").alias("revenue"),
+# )
+# # sample_summary.explain("formatted")
+# sample_summary.orderBy("product_id").show()
+
+# keyed_orders = sample_orders.repartition(4, "product_id")
+# print("keyed_partitions =", keyed_orders.rdd.getNumPartitions())
+# print("=" * 50, "키로 지정한 product_id별로 분류되어 파티션 배정이 되었는지 확인.", "=" * 50)
+# keyed_rows = keyed_orders.select(
+#     "order_id", "product_id", F.spark_partition_id().alias("partition_id")
+# )
+# keyed_rows.show()
+# keyed_sizes = keyed_rows.groupBy("partition_id", "product_id").agg(
+#     F.count("*").alias("row_count")
+# )
+# keyed_sizes.orderBy("partition_id", "product_id").show()
+
+# print("=" * 50, "나눠진 파티션으로 집계하기.", "=" * 50)
+# keyed_orders.groupBy("product_id").agg(
+#     F.count("*").alias("order_count"),
+#     F.sum("amount").alias("revenue"),
+# ).orderBy("product_id").show()
+
+
+# print("=" * 50, "조인 대상 테이블 상태 점검.", "=" * 50)
+# sample_orders.select("order_id", "product_id", "quantity", "amount").orderBy("order_id").show()
+# products.select("product_id", "name", "category").orderBy("product_id").show()
+
+# print("=" * 50, "product_id기반 조인 결과 테이블 구조 확인 및 row 개수 확인.", "=" * 50)
+# sample_enriched = sample_orders.join(products, on="product_id", how="inner")
+# sample_enriched.printSchema()
+# print("joined_rows =", sample_enriched.count())
+
+# print("=" * 50, "조인된 결과 테이블 조회", "=" * 50)
+# sample_named_rows = sample_enriched.select(
+#     "order_id", "product_id", "name", "category", "amount"
+# ).withColumnRenamed("name", "product_name")
+# sample_named_rows.orderBy("order_id").show()
+
+# print("=" * 50, "조인 후, 상품별 집계", "=" * 50)
+# sample_by_product = sample_enriched.groupBy("product_id", "name").agg(
+#     F.count("*").alias("order_count"),
+#     F.sum("amount").alias("revenue"),
+# ).withColumnRenamed("name", "product_name")
+# sample_by_product.orderBy("product_id").show()
+
+# print("=" * 50, "힌트 없는 조인", "=" * 50)
+# normal_join = sample_orders.join(products, "product_id", "inner")
+# print("normal join plan")
+# normal_join.explain("formatted")
+
+# print("=" * 50, "힌트 있는 조인", "=" * 50)
+# broadcast_join = sample_orders.join(F.broadcast(products), "product_id", "inner")
+# print("broadcast join plan")
+# broadcast_join.explain("formatted")
+
+
+# normal_join.select("order_id", "product_id", "name", "amount").orderBy("order_id").show()
+# broadcast_join.select("order_id", "product_id", "name", "amount").orderBy("order_id").show()
+
+
+# normal_sales = normal_join.groupBy("product_id").agg(
+#     F.sum("amount").alias("revenue")
+# )
+# broadcast_sales = broadcast_join.groupBy("product_id").agg(
+#     F.sum("amount").alias("revenue")
+# )
+# normal_sales.orderBy("product_id").show()
+# broadcast_sales.orderBy("product_id").show()
+# 7일차 관찰 끝
+
 
 # 커넥션 끊기
 spark.stop()

@@ -3,22 +3,424 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <title>{% block title %}Order Insight{% endblock %}</title>
+
   <style>
-    body { max-width: 960px; margin: 32px auto; padding: 0 16px; font-family: sans-serif; }
-    nav { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
-    article { padding: 16px 0; border-bottom: 1px solid #ddd; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    input { width: 72px; }
+    :root {
+      --bg: #f6f9fc;
+      --surface: #ffffff;
+
+      --text: #30313d;
+      --muted: #6b7280;
+
+      --border: #e6e9ef;
+
+      --primary: #635bff;
+      --primary-hover: #4f46e5;
+
+      --shadow:
+        0 1px 2px rgba(0, 0, 0, 0.04),
+        0 2px 6px rgba(0, 0, 0, 0.04);
+
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+
+      background: var(--bg);
+      color: var(--text);
+
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Helvetica,
+        Arial,
+        sans-serif;
+
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-inner {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 0 24px;
+
+      height: 64px;
+
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      font-size: 18px;
+      font-weight: 700;
+
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+
+      display: grid;
+      place-items: center;
+
+      border-radius: 7px;
+
+      background: var(--primary);
+      color: white;
+
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    nav a {
+      padding: 8px 11px;
+
+      border-radius: 6px;
+
+      color: var(--muted);
+      text-decoration: none;
+
+      font-size: 14px;
+      font-weight: 500;
+
+      transition:
+        background-color 0.15s ease,
+        color 0.15s ease;
+    }
+
+    nav a:hover {
+      background: #f3f4f6;
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 36px 24px 64px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+
+      font-size: 28px;
+      line-height: 1.25;
+
+      letter-spacing: -0.02em;
+
+      color: #1f2937;
+    }
+
+    h2 {
+      margin: 32px 0 14px;
+
+      font-size: 18px;
+      line-height: 1.4;
+
+      color: #1f2937;
+    }
+
+    h3 {
+      margin: 0;
+
+      font-size: 14px;
+      font-weight: 600;
+
+      color: var(--muted);
+    }
+
+    p {
+      color: var(--muted);
+    }
+
+    .card {
+      background: var(--surface);
+
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+
+      box-shadow: var(--shadow);
+
+      padding: 20px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .metric {
+      background: var(--surface);
+
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+
+      padding: 20px;
+
+      box-shadow: var(--shadow);
+    }
+
+    .metric-label {
+      margin-bottom: 8px;
+
+      color: var(--muted);
+
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .metric-value {
+      font-size: 26px;
+      font-weight: 650;
+
+      letter-spacing: -0.02em;
+
+      color: #1f2937;
+    }
+
+    .metric-change {
+      margin-top: 6px;
+
+      color: #16a34a;
+
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    table {
+      width: 100%;
+
+      border-collapse: separate;
+      border-spacing: 0;
+
+      background: var(--surface);
+
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+
+      overflow: hidden;
+
+      box-shadow: var(--shadow);
+    }
+
+    thead {
+      background: #f8fafc;
+    }
+
+    th {
+      padding: 11px 14px;
+
+      text-align: left;
+
+      color: var(--muted);
+
+      font-size: 12px;
+      font-weight: 600;
+
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 13px 14px;
+
+      border-bottom: 1px solid var(--border);
+
+      color: var(--text);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background: #fafbfc;
+    }
+
+    input,
+    select,
+    textarea {
+      border: 1px solid #d8dee9;
+      border-radius: 6px;
+
+      padding: 8px 10px;
+
+      background: white;
+
+      color: var(--text);
+
+      font: inherit;
+
+      outline: none;
+    }
+
+    input {
+      width: 90px;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--primary);
+
+      box-shadow:
+        0 0 0 3px rgba(99, 91, 255, 0.12);
+    }
+
+    button,
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+
+      padding: 8px 13px;
+
+      border: none;
+      border-radius: 6px;
+
+      background: var(--primary);
+      color: white;
+
+      font-size: 13px;
+      font-weight: 600;
+
+      text-decoration: none;
+
+      cursor: pointer;
+    }
+
+    button:hover,
+    .button:hover {
+      background: var(--primary-hover);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+
+      padding: 3px 8px;
+
+      border-radius: 999px;
+
+      background: #f1f0ff;
+      color: var(--primary);
+
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    article {
+      margin-bottom: 16px;
+
+      padding: 18px 20px;
+
+      background: var(--surface);
+
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+
+      box-shadow: var(--shadow);
+    }
+
+    .section-header {
+      margin-bottom: 16px;
+
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    @media (max-width: 760px) {
+      .header-inner {
+        height: auto;
+
+        padding-top: 14px;
+        padding-bottom: 14px;
+
+        flex-direction: column;
+        align-items: flex-start;
+
+        gap: 12px;
+      }
+
+      nav {
+        flex-wrap: wrap;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .container {
+        padding-top: 24px;
+      }
+
+      table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
   </style>
 </head>
+
 <body>
-  <nav aria-label="주 메뉴">
-    <a href="{% url 'shop:products' %}">상품·주문</a>
-    <a href="{% url 'shop:orders' %}">주문 내역</a>
-    <a href="{% url 'analytics:dashboard' %}">매출 대시보드</a>
-  </nav>
-  <main>{% block content %}{% endblock %}</main>
+
+<header>
+  <div class="header-inner">
+
+    <a href="{% url 'analytics:dashboard' %}" class="brand">
+      <span class="brand-mark">O</span>
+      Order Insight
+    </a>
+
+    <nav aria-label="주 메뉴">
+      <a href="{% url 'shop:products' %}">
+        상품·주문
+      </a>
+
+      <a href="{% url 'shop:orders' %}">
+        주문 내역
+      </a>
+
+      <a href="{% url 'analytics:dashboard' %}">
+        매출 대시보드
+      </a>
+    </nav>
+
+  </div>
+</header>
+
+<main class="container">
+  {% block content %}
+  {% endblock %}
+</main>
+
 </body>
 </html>
