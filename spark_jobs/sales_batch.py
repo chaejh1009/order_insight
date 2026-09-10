@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, LongType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, LongType, DecimalType, TimestampType
 # 5일차 7교시 추가코드
 import json
 from datetime import datetime
@@ -23,6 +23,9 @@ spark = (
     .config("spark.sql.session.timeZone", "Asia/Seoul")
     .getOrCreate()
 )
+
+# 스파크 연결 후 정제 시작시간
+started = perf_counter()
 
 # INFO 레벨 로그 안 보기
 spark.sparkContext.setLogLevel("WARN")
@@ -156,29 +159,6 @@ overall = orders.agg(
     F.max("amount").alias("max_order_amount"),
     F.min("amount").alias("min_order_amount"),
 ).first().asDict()
-
-preview = [
-    row.asDict()
-    for row in orders.select("order_id", "product_id", "quantity", "amount")
-    .orderBy("order_id")
-    .limit(10)
-    .collect()
-]
-summary = {
-    "generated_at": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(),
-    "overall": overall,
-    "order_count": orders.count(),
-    "preview": preview,
-    "by_product": [row.asDict() for row in by_product.orderBy("product_id").collect()],
-    "by_day": [row.asDict() for row in by_day.orderBy("order_date").collect()],
-    "page_views": [row.asDict() for row in page_views.orderBy("visit_date").collect()],
-    "by_category": [row.asDict() for row in by_category.orderBy("category").collect()],
-}
-summary["generated_at"] = datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds")
-output_dir = data_dir / "marts"
-output_dir.mkdir(parents=True, exist_ok=True)
-with (output_dir / "dashboard.json").open("w", encoding="utf-8") as stream:
-    json.dump(summary, stream, ensure_ascii=False, indent=2)
 
 
 # by_product2 = orders.groupBy("product_id").agg(
@@ -345,6 +325,91 @@ with (output_dir / "dashboard.json").open("w", encoding="utf-8") as stream:
 # broadcast_sales.orderBy("product_id").show()
 # 7일차 관찰 끝
 
+# parquet 시작
+raw_orders = spark.read.schema(order_schema).option("header", True).csv(
+    (data_dir / "raw" / "orders.csv").as_uri()
+)
 
+bronze_path = (data_dir / "lake" / "bronze" / "orders").as_uri()
+
+raw_orders.orderBy("order_id").show()
+raw_orders.write.mode("overwrite").parquet(bronze_path)
+
+## 용량 줄어드는 예시
+# # 주문 스키마 설정하기
+# olist_order_items_schema = StructType([
+#     StructField("order_id", StringType()),
+#     StructField("order_item_id", IntegerType()),
+#     StructField("product_id", StringType()),
+#     StructField("seller_id", StringType()),
+#     StructField("shipping_limit_date", TimestampType()),
+#     StructField("price", DecimalType(10, 2)),
+#     StructField("freight_value", DecimalType(10, 2)),
+# ])
+
+# olist_order_items = spark.read.schema(olist_order_items_schema).option("header", True).csv(
+#     (data_dir / "raw" / "olist_order_items_dataset.csv").as_uri()
+# )
+
+# olist_order_items_bronze_path = (data_dir / "lake" / "bronze" / "olist_order_items").as_uri()
+
+# olist_order_items.orderBy("order_id", "order_item_id").show()
+# olist_order_items.write.mode("overwrite").parquet(olist_order_items_bronze_path)
+
+bronze_orders = spark.read.parquet(bronze_path)
+
+products = spark.read.schema(product_schema).json(
+    (data_dir / "raw" / "products.jsonl").as_uri()
+)
+
+orders = (
+    bronze_orders.withColumn("amount", F.col("quantity") * F.col("unit_price"))
+    .withColumn("ordered_at", F.to_timestamp("ordered_at"))
+    .withColumn("order_date", F.to_date("ordered_at"))
+)
+
+bronze_orders.printSchema()
+selected = bronze_orders.select("product_id", "quantity", "unit_price")
+selected.explain("formatted")
+
+silver_path = (data_dir / "lake" / "silver" / "orders").as_uri()
+orders = spark.read.format("delta").load(silver_path)
+
+# bronze_orders.printSchema()
+# orders.printSchema()
+orders.filter(F.col("order_id") <= 12).groupBy("order_date").agg(
+    F.sum("amount").alias("revenue")
+).orderBy("order_date").show()
+
+orders.write.format("delta").mode("overwrite").save(silver_path)
+saved_orders = spark.read.format("delta").load(silver_path)
+saved_orders.select("order_id", "quantity", "amount").orderBy("order_id").show()
+
+preview = [
+    row.asDict()
+    for row in orders.select("order_id", "product_id", "quantity", "amount")
+    .orderBy("order_id")
+    .limit(10)
+    .collect()
+]
+summary = {
+    "generated_at": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(),
+    "overall": overall,
+    "order_count": orders.count(),
+    "preview": preview,
+    "by_product": [row.asDict() for row in by_product.orderBy("product_id").collect()],
+    "by_day": [row.asDict() for row in by_day.orderBy("order_date").collect()],
+    "page_views": [row.asDict() for row in page_views.orderBy("visit_date").collect()],
+    "by_category": [row.asDict() for row in by_category.orderBy("category").collect()],
+}
+summary["generated_at"] = datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds")
+# 소요시간 측정 마감 및 pipeline_seconds에 저장.
+summary["pipeline_seconds"] = round(perf_counter() - started, 3)
+output_dir = data_dir / "marts"
+output_dir.mkdir(parents=True, exist_ok=True)
+with (output_dir / "dashboard.json").open("w", encoding="utf-8") as stream:
+    json.dump(summary, stream, ensure_ascii=False, indent=2)
+print("orders =", summary["order_count"])
+print("pipeline_seconds =", summary["pipeline_seconds"])
 # 커넥션 끊기
 spark.stop()

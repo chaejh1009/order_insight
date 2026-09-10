@@ -13,6 +13,7 @@ class Command(BaseCommand):
         parser.add_argument("--cores", type=int, choices=[1, 2], default=2)
         parser.add_argument("--script", default="spark_jobs/sales_batch.py")
         parser.add_argument("--data-dir", default=str(settings.DATA_DIR))
+        parser.add_argument("--delta", action="store_true")
 
     def handle(self, *args, **options):
         script = (settings.BASE_DIR / options["script"]).resolve()
@@ -23,7 +24,14 @@ class Command(BaseCommand):
             "--executor-cores", "1",
             "--total-executor-cores", str(options["cores"]),
         ]
+        if options["delta"]:
+            command += [
+                "--packages", settings.DELTA_PACKAGE,
+                "--conf", "spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension",
+                "--conf", "spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog",
+            ]
         command += [str(script), "--data-dir", str(data_dir)]
+
         started = perf_counter()
         subprocess.run(command, cwd=settings.BASE_DIR, check=True)
         elapsed = perf_counter() - started

@@ -147,4 +147,5 @@ MAILERS = {
 }
 
 
-SPARK_SUBMIT=os.path.expandvars(os.environ.get("SPARK_SUBMIT"))
+SPARK_SUBMIT = os.path.expandvars(os.environ.get("SPARK_SUBMIT"))
+DELTA_PACKAGE = os.environ.get("DELTA_PACKAGE")

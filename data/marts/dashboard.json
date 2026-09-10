@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-09T17:07:43+09:00",
+  "generated_at": "2026-09-10T17:33:28+09:00",
   "overall": {
-    "order_count": 13,
-    "total_revenue": 5800,
-    "average_order_amount": 446.15384615384613,
+    "order_count": 16,
+    "total_revenue": 6800,
+    "average_order_amount": 425.0,
     "max_order_amount": 1500,
     "min_order_amount": 100
   },
@@ -83,9 +83,9 @@
       "product_id": "B",
       "product_name": "빵",
       "category": "식품",
-      "revenue": 2800,
-      "order_count": 7,
-      "average_order_amount": 400.0
+      "revenue": 3800,
+      "order_count": 10,
+      "average_order_amount": 380.0
     }
   ],
   "by_day": [
@@ -98,6 +98,11 @@
       "order_date": "2026-09-08",
       "order_count": 7,
       "revenue": 4600
+    },
+    {
+      "order_date": "2026-09-10",
+      "order_count": 3,
+      "revenue": 1000
     }
   ],
   "page_views": [
@@ -110,18 +115,29 @@
       "visit_date": "2026-09-08",
       "page_views": 9,
       "total_duration_ms": 152
+    },
+    {
+      "visit_date": "2026-09-09",
+      "page_views": 6,
+      "total_duration_ms": 124
+    },
+    {
+      "visit_date": "2026-09-10",
+      "page_views": 5,
+      "total_duration_ms": 98
     }
   ],
   "by_category": [
     {
       "category": "식품",
-      "order_count": 7,
-      "revenue": 2800
+      "order_count": 10,
+      "revenue": 3800
     },
     {
       "category": "음료",
       "order_count": 6,
       "revenue": 3000
     }
-  ]
+  ],
+  "pipeline_seconds": 88.993
 }

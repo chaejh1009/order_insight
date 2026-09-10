@@ -1,67 +1,191 @@
 {% extends 'base.html' %}
 {% block title %}매출 대시보드 · Order Insight{% endblock %}
+{% block extra_head %}
+<style>
+  :root { --bg: #f4f7f5; --text: #24362c; --muted: #617168; --border: #e0e7e2; --primary: #216548; --primary-hover: #174b35; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  .header-inner, .container { max-width: 1280px; }
+  .brand { letter-spacing: -.6px; }
+  nav a[href="{% url 'analytics:dashboard' %}"] { background: #eaf2ec; color: #216548; font-weight: 700; }
+  .dashboard { --radius: 16px; }
+  .dashboard .intro { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 28px; }
+  .dashboard .eyebrow { margin: 0 0 10px; color: #216548; font-size: 11px; font-weight: 800; letter-spacing: 2px; }
+  .dashboard h1 { color: #193c2a; font-size: clamp(28px, 3vw, 36px); letter-spacing: -1.4px; }
+  .dashboard .intro p:last-child { margin: 10px 0 0; }
+  .dashboard .updated { text-align: right; font-size: 12px; color: var(--muted); }
+  .dashboard .updated time { display: block; margin-top: 7px; color: var(--text); overflow-wrap: anywhere; }
+  .dashboard .metrics { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr; gap: 16px; margin: 0 0 28px; }
+  .dashboard .stat { min-width: 0; padding: 24px; border: 1px solid var(--border); border-radius: var(--radius); background: white; }
+  .dashboard .stat dt { font-size: 13px; font-weight: 600; color: #53685a; }
+  .dashboard .stat dd { margin: 16px 0 10px; font-size: clamp(25px, 2.7vw, 35px); font-weight: 750; letter-spacing: -1px; overflow-wrap: anywhere; }
+  .dashboard .unit { margin-left: 4px; font-size: 14px; font-weight: 500; }
+  .dashboard .stat p { margin: 0; font-size: 12px; }
+  .dashboard .stat.primary { background: #193e2c; border-color: #193e2c; color: white; }
+  .dashboard .stat.primary dt, .dashboard .stat.primary p { color: #c5dfcd; }
+  .dashboard .columns { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 22px; margin-bottom: 22px; align-items: start; }
+  .dashboard .panel { min-width: 0; background: white; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .dashboard .panel-top { padding: 23px 24px 19px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .dashboard h2 { margin: 0; font-size: 17px; letter-spacing: -.4px; color: #243c2d; }
+  .dashboard .panel-top p { margin: 5px 0 0; font-size: 12px; }
+  .dashboard .tag { flex-shrink: 0; padding: 5px 9px; background: #f0f5f1; color: #53685a; font-size: 11px; border-radius: 6px; }
+  .dashboard .table-scroll { overflow-x: auto; }
+  .dashboard [tabindex]:focus-visible, .dashboard summary:focus-visible { outline: 3px solid #216548; outline-offset: -3px; }
+  .dashboard table { display: table; border: 0; border-radius: 0; box-shadow: none; white-space: nowrap; }
+  .dashboard th { padding: 12px 24px; background: #f7faf8; font-size: 11px; color: #617168; }
+  .dashboard td { padding: 16px 24px; border-color: #edf1ee; font-size: 13px; }
+  .dashboard tbody tr:hover { background: #f4f8f5; }
+  .dashboard .number { text-align: right; }
+  .dashboard table, .dashboard dd, .dashboard time, .dashboard .category-label { font-variant-numeric: tabular-nums; }
+  .dashboard .revenue { color: #216548; font-weight: 700; }
+  .dashboard .product-id { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 30px; padding: 0 7px; border-radius: 8px; background: #edf3ef; color: #39634b; font-weight: 700; }
+  .dashboard .wide { margin-bottom: 22px; }
+  .dashboard .category-list { list-style: none; margin: 0; padding: 0 24px 8px; }
+  .dashboard .category-list li { padding: 17px 0; border-top: 1px solid #edf1ee; }
+  .dashboard .category-label, .dashboard .category-meta { display: flex; justify-content: space-between; gap: 16px; }
+  .dashboard .category-label { font-size: 13px; }
+  .dashboard .category-meta { margin-top: 8px; font-size: 11px; color: var(--muted); }
+  .dashboard .track { height: 7px; margin-top: 12px; border-radius: 8px; background: #edf2ee; overflow: hidden; }
+  .dashboard .fill { height: 100%; max-width: 100%; border-radius: inherit; background: #2b7954; }
+  .dashboard .category-list li:nth-child(2n) .fill { background: #71977a; }
+  .dashboard .empty { padding: 32px 24px; text-align: center; white-space: normal; color: var(--muted); }
+  .dashboard .pipeline { border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; font-size: 12px; color: var(--muted); }
+  .dashboard .pipeline summary { cursor: pointer; color: #465c4e; }
+  .dashboard .pipeline p { margin: 12px 0 0; line-height: 1.8; }
+  @media (max-width: 1000px) {
+    .dashboard .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dashboard .columns { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .container { padding: 26px 16px 40px; }
+    .dashboard .intro { flex-direction: column; align-items: flex-start; gap: 18px; }
+    .dashboard .updated { text-align: left; }
+    .dashboard .metrics { gap: 10px; margin-bottom: 20px; }
+    .dashboard .stat { padding: 18px 14px; border-radius: 12px; }
+    .dashboard .stat dd { font-size: 25px; }
+    .dashboard .panel-top { padding: 20px 18px 16px; }
+    .dashboard th, .dashboard td { padding-left: 18px; padding-right: 18px; }
+    .dashboard .category-list { padding-left: 18px; padding-right: 18px; }
+  }
+</style>
+{% endblock %}
 {% block content %}
-  <h1>매출 대시보드</h1>
-  <h2>주문 미리보기</h2>
-  <p>주문 {{ summary.order_count }}건</p>
-  <p>집계 기준: {{ summary.generated_at }}</p>
-  <table>
-    <thead><tr><th>주문</th><th>상품</th><th>수량</th><th>금액</th></tr></thead>
-    <tbody>
-      {% for row in summary.preview %}
-      <tr>
-        <td>{{ row.order_id }}</td><td>{{ row.product_id }}</td>
-        <td>{{ row.quantity }}</td><td>{{ row.amount }}원</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-    <h2>상품별 매출</h2>
-  <table>
-    <thead><tr><th>상품 ID</th><th>상품명</th><th>주문 수</th><th>매출</th><th>평균 주문 금액</th></tr></thead>
-    <tbody>
-      {% for row in summary.by_product %}
-      <tr>
-        <td>{{ row.product_id }}</td><td>{{ row.product_name }}</td>
-        <td>{{ row.order_count }}건</td><td>{{ row.revenue }}원</td>
-        <td>{{ row.average_order_amount }}원</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-    <h2>일자별 매출</h2>
-  <table>
-    <thead><tr><th>주문 날짜</th><th>주문 수</th><th>매출</th></tr></thead>
-    <tbody>
-      {% for row in summary.by_day %}
-      <tr>
-        <td>{{ row.order_date }}</td><td>{{ row.order_count }}건</td>
-        <td>{{ row.revenue }}원</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  <h2>상품 화면 접속 건수</h2>
-  <table>
-    <thead><tr><th>조회 날짜</th><th>접속 건수</th></tr></thead>
-    <tbody>
-      {% for row in summary.page_views %}
-      <tr>
-        <td>{{ row.visit_date }}</td><td>{{ row.page_views }}회</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  <h2>분류별 매출</h2>
-  <table>
-    <thead><tr><th>분류</th><th>주문 수</th><th>매출</th></tr></thead>
-    <tbody>
-      {% for row in summary.by_category %}
-      <tr>
-        <td>{{ row.category }}</td><td>{{ row.order_count }}건</td>
-        <td>{{ row.revenue }}원</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="dashboard">
+  <div class="intro">
+    <div>
+      <p class="eyebrow">BUSINESS OVERVIEW</p>
+      <h1>매출 대시보드</h1>
+      <p>주문부터 매출까지, 비즈니스 흐름을 한눈에 확인하세요.</p>
+    </div>
+    <div class="updated">집계 기준
+      <time datetime="{{ summary.generated_at }}">{{ summary.generated_at|default:"집계 정보 없음" }}</time>
+    </div>
+  </div>
+  <dl class="metrics" aria-label="주요 매출 지표">
+    <div class="stat primary">
+      <dt>총매출</dt>
+      <dd>{{ summary.overall.total_revenue|floatformat:"0g"|default:"—" }}<span class="unit">원</span></dd>
+      <p>전체 집계 기간 기준</p>
+    </div>
+    <div class="stat">
+      <dt>전체 주문</dt>
+      <dd>{{ summary.overall.order_count|floatformat:"0g"|default:"—" }}<span class="unit">건</span></dd>
+      <p>매출 집계에 포함된 주문</p>
+    </div>
+    <div class="stat">
+      <dt>평균 주문 금액</dt>
+      <dd>{{ summary.overall.average_order_amount|floatformat:"0g"|default:"—" }}<span class="unit">원</span></dd>
+      <p>주문 한 건당 평균 매출</p>
+    </div>
+    <div class="stat">
+      <dt>최대 주문 금액</dt>
+      <dd>{{ summary.overall.max_order_amount|floatformat:"0g"|default:"—" }}<span class="unit">원</span></dd>
+      <p>단일 주문 기준</p>
+    </div>
+  </dl>
+  <div class="columns">
+  <section class="panel" aria-labelledby="daily-title">
+    <div class="panel-top"><div><h2 id="daily-title">일자별 매출</h2><p>날짜별 주문 수와 매출을 확인하세요.</p></div><span class="tag">{{ summary.by_day|length }}일</span></div>
+    <div class="table-scroll" role="region" aria-labelledby="daily-title" tabindex="0">
+      <table>
+        <thead><tr><th scope="col">주문 날짜</th><th scope="col" class="number">주문 수</th><th scope="col" class="number">매출</th></tr></thead>
+        <tbody>
+          {% for row in summary.by_day %}
+          <tr><td>{{ row.order_date }}</td><td class="number">{{ row.order_count|floatformat:"0g" }}건</td><td class="number revenue">{{ row.revenue|floatformat:"0g" }}원</td></tr>
+          {% empty %}
+          <tr><td colspan="3" class="empty">집계된 일자별 매출 데이터가 없습니다.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+    <section class="panel" aria-labelledby="category-title">
+      <div class="panel-top"><div><h2 id="category-title">분류별 매출</h2><p>전체 매출에서 각 분류가 차지하는 비중</p></div></div>
+      <ul class="category-list">
+        {% for row in summary.by_category %}
+        <li>
+          <div class="category-label"><span>{{ row.category }}</span><strong>{{ row.revenue|floatformat:"0g" }}원</strong></div>
+          {% if summary.overall.total_revenue %}
+          {% widthratio row.revenue summary.overall.total_revenue 100 as share %}
+          <div class="track" aria-hidden="true"><div class="fill" style="width: {{ share }}%"></div></div>
+          <div class="category-meta"><span>주문 {{ row.order_count|floatformat:"0g" }}건</span><span>{{ share }}%</span></div>
+          {% else %}<div class="category-meta">주문 {{ row.order_count|floatformat:"0g" }}건</div>{% endif %}
+        </li>
+        {% empty %}<li class="empty">집계된 분류별 매출이 없습니다.</li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+  <div class="wide">
+  <section class="panel" aria-labelledby="product-title">
+    <div class="panel-top"><div><h2 id="product-title">상품별 매출</h2><p>상품별 판매 실적과 평균 주문 금액을 비교하세요.</p></div><span class="tag">{{ summary.by_product|length }}개 상품</span></div>
+    <div class="table-scroll" role="region" aria-labelledby="product-title" tabindex="0">
+      <table>
+        <thead><tr><th scope="col">상품 ID</th><th scope="col">상품명</th><th scope="col" class="number">주문 수</th><th scope="col" class="number">매출</th><th scope="col" class="number">평균 주문 금액</th></tr></thead>
+        <tbody>
+          {% for row in summary.by_product %}
+          <tr><td><span class="product-id">{{ row.product_id }}</span></td><td><strong>{{ row.product_name }}</strong></td><td class="number">{{ row.order_count|floatformat:"0g" }}건</td><td class="number revenue">{{ row.revenue|floatformat:"0g" }}원</td><td class="number">{{ row.average_order_amount|floatformat:"0g" }}원</td></tr>
+          {% empty %}
+          <tr><td colspan="5" class="empty">집계된 상품별 매출 데이터가 없습니다.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  </div>
+  <div class="columns">
+  <section class="panel" aria-labelledby="preview-title">
+    <div class="panel-top"><div><h2 id="preview-title">주문 미리보기</h2><p>미리보기 원본 주문 {{ summary.order_count|floatformat:"0g" }}건 중 {{ summary.preview|length }}건 표시</p></div></div>
+    <div class="table-scroll" role="region" aria-labelledby="preview-title" tabindex="0">
+      <table>
+        <thead><tr><th scope="col">주문</th><th scope="col">상품</th><th scope="col" class="number">수량</th><th scope="col" class="number">금액</th></tr></thead>
+        <tbody>
+          {% for row in summary.preview %}
+          <tr><td>#{{ row.order_id }}</td><td>{{ row.product_id }}</td><td class="number">{{ row.quantity|floatformat:"0g" }}</td><td class="number">{{ row.amount|floatformat:"0g" }}원</td></tr>
+          {% empty %}
+          <tr><td colspan="4" class="empty">집계된 주문 미리보기 데이터가 없습니다.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section class="panel" aria-labelledby="views-title">
+    <div class="panel-top"><div><h2 id="views-title">상품 화면 접속 건수</h2><p>일자별 상품 페이지 방문 현황</p></div></div>
+    <div class="table-scroll" role="region" aria-labelledby="views-title" tabindex="0">
+      <table>
+        <thead><tr><th scope="col">조회 날짜</th><th scope="col" class="number">접속 건수</th></tr></thead>
+        <tbody>
+          {% for row in summary.page_views %}
+          <tr><td>{{ row.visit_date }}</td><td class="number">{{ row.page_views|floatformat:"0g" }}회</td></tr>
+          {% empty %}
+          <tr><td colspan="2" class="empty">집계된 상품 화면 접속 건수 데이터가 없습니다.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  </div>
+  <details class="pipeline">
+    <summary>저장·집계 처리 시간 <strong>{{ summary.pipeline_seconds|floatformat:3|default:"—" }}초</strong> · 측정 범위 보기</summary>
+    <p>측정 범위: Spark 세션 준비 뒤부터 입력 읽기·Parquet/Delta 저장·집계 결과 수신까지, JSON 파일 쓰기 제외.</p>
+  </details>
+</div>
 {% endblock %}
