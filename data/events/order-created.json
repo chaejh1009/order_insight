@@ -1,0 +1,1 @@
+{"event_type": "order.created", "order_id": 1, "product_id": "A", "quantity": 1, "unit_price": 100, "amount": 100, "ordered_at": "2026-09-07T10:00:00+09:00"}

@@ -10,7 +10,7 @@ class Command(BaseCommand):
     help = "설치된 Spark 배포판의 spark-submit으로 배치를 제출합니다."
 
     def add_arguments(self, parser):
-        parser.add_argument("--cores", type=int, choices=[1, 2], default=2)
+        parser.add_argument("--cores", type=int, choices=[1, 2, 4, 8], default=2)
         parser.add_argument("--script", default="spark_jobs/sales_batch.py")
         parser.add_argument("--data-dir", default=str(settings.DATA_DIR))
         parser.add_argument("--delta", action="store_true")

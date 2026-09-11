@@ -373,6 +373,9 @@ selected = bronze_orders.select("product_id", "quantity", "unit_price")
 selected.explain("formatted")
 
 silver_path = (data_dir / "lake" / "silver" / "orders").as_uri()
+# 실버 레이어 파일 저장(선행 실행)
+orders.write.format("delta").mode("overwrite").save(silver_path)
+# 저장한 파일 읽어오기(저장 후 실행)
 orders = spark.read.format("delta").load(silver_path)
 
 # bronze_orders.printSchema()
@@ -381,7 +384,6 @@ orders.filter(F.col("order_id") <= 12).groupBy("order_date").agg(
     F.sum("amount").alias("revenue")
 ).orderBy("order_date").show()
 
-orders.write.format("delta").mode("overwrite").save(silver_path)
 saved_orders = spark.read.format("delta").load(silver_path)
 saved_orders.select("order_id", "quantity", "amount").orderBy("order_id").show()
 

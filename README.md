@@ -15,14 +15,17 @@ Django와 MySQL로 상품·주문을 관리하고, Apache Spark로 주문 데이
 - 처리 결과를 JSON 파일로 저장하고 Django 대시보드에서 조회
 - 총매출·전체 주문·평균 주문 금액·최대 주문 금액을 요약 카드로 표시
 - 분류별 매출 비중 막대, 모바일 반응형 배치, 가로 스크롤 표 제공
-- Bronze Parquet 저장 및 기존 Silver Delta 테이블 읽기·덮어쓰기
+- Bronze Parquet 저장, Silver Delta 테이블 생성·덮어쓰기 및 재조회
+- 내보내기와 배치를 한 번에 실행하는 대시보드 갱신 명령
+- 주문 한 건을 `order.created` 이벤트 JSON으로 내보내기
+- 대용량 합성 주문 생성 및 코어 수별 벤치마크
 - 별도 Delta 테이블에서 overwrite·append·UPDATE와 변경 이력 조회 실습
 - Python의 `map`·`reduce`, Spark 집계 실행 계획, 입력 파티션 수 비교 실습
 - Spark 주문 집계 처리 시간과 입력 파티션을 확인하는 벤치마크 실습
 
 현재 Spark 배치는 주문·상품·접속 로그를 함께 읽고, `product_id` 기준의 broadcast join으로 상품별·카테고리별 집계를 생성합니다. 결과에는 전체 지표, 주문 ID 오름차순 미리보기 최대 10건, 상품별·일자별 매출, 일자별 접속 통계가 포함됩니다. 화면은 실시간 집계가 아니라 마지막으로 저장된 JSON을 표시합니다.
 
-> 현재 `sales_batch.py`는 기존 `data/lake/silver/orders` Delta 테이블을 읽습니다. 새 환경에서 `seed_demo`와 `export_analytics`만 실행하면 이 테이블이 만들어지지 않습니다. 기본 배치를 실행하기 전에 아래의 **현재 배치의 입력과 제약**을 확인하세요.
+> 최초 실행은 `seed_demo` → `export_analytics` → `run_spark_batch --delta` 순서로 진행합니다. 첫 배치가 Silver Delta 테이블과 집계 결과를 생성한 뒤에는 `refresh_analytics`로 갱신할 수 있습니다.
 
 ## 준비 사항
 
@@ -94,7 +97,7 @@ python manage.py export_analytics
 python manage.py run_spark_batch --cores 2 --delta
 ```
 
-기존 Silver Delta 테이블이 준비된 환경에서 실행합니다. 처리가 끝나면 대시보드를 새로고침합니다. 웹에서 생성한 주문을 매출 지표에 반영하려면 내보내기와 배치를 다시 실행해야 하며, 주문 미리보기는 아래 설명처럼 Silver 테이블의 상태에 따라 달라집니다.
+이 명령은 Bronze Parquet와 Silver Delta 테이블을 생성하거나 덮어쓰고 대시보드 JSON을 저장합니다. 처리가 끝나면 대시보드를 새로고침합니다. 웹에서 생성한 주문은 다음 내보내기·배치 실행 이후에 반영됩니다.
 
 데이터는 다음 순서로 이동합니다.
 
@@ -105,7 +108,8 @@ MySQL 상품·주문 + 상품 페이지 접속 로그
   → spark_jobs/sales_batch.py
       ├─ CSV 기반 전체·상품별·일자별·분류별 집계
       ├─ data/lake/bronze/orders/에 Parquet 덮어쓰기
-      └─ 기존 data/lake/silver/orders/에서 주문 미리보기 생성
+      └─ Bronze 정제 → data/lake/silver/orders/에 Delta 덮어쓰기·재조회
+          → 주문 수와 미리보기 생성
   → data/marts/dashboard.json
   → /dashboard/
 ```
@@ -116,7 +120,7 @@ MySQL 상품·주문 + 상품 페이지 접속 로그
 
 | 옵션 | 기본값 | 용도 |
 | --- | --- | --- |
-| `--cores` | `2` | 총 executor 코어 수 지정, `1` 또는 `2` |
+| `--cores` | `2` | 총 executor 코어 수 지정, `1`, `2`, `4`, `8` |
 | `--script` | `spark_jobs/sales_batch.py` | 실행할 Spark 스크립트 |
 | `--data-dir` | 프로젝트의 `data/` | 입력·출력 데이터 루트 |
 | `--delta` | 비활성 | Delta 패키지와 SQL 확장·카탈로그 설정 추가 |
@@ -139,15 +143,34 @@ MySQL 상품·주문 + 상품 페이지 접속 로그
 
 직접 제출할 때는 `DELTA_PACKAGE`를 셸 환경 변수로도 설정해야 합니다. `.env` 파일은 Django에서 로드하며 `spark-submit`이 자동으로 읽지는 않습니다.
 
-### 현재 배치의 입력과 제약
+### 이후 대시보드 갱신
 
-- 전체 지표(`overall`)와 상품별·일자별·분류별 매출은 `data/raw/orders.csv`를 기준으로 계산합니다.
-- 배치 후반에 `orders`를 기존 Silver Delta 테이블로 다시 읽습니다. 최상위 `order_count`와 `preview`는 이 테이블을 기준으로 생성됩니다.
-- 따라서 상단의 전체 주문 수와 주문 미리보기의 원본 주문 수는 다를 수 있습니다. 내보내기만으로 Silver 테이블이 갱신되지는 않습니다.
-- Bronze Parquet는 CSV에서 덮어쓰지만, 현재 코드에는 Bronze에서 최초 Silver 테이블을 생성하는 단계가 없습니다. Silver 경로에는 `order_id`, `product_id`, `quantity`, `unit_price`, `ordered_at`, `amount`, `order_date` 컬럼을 가진 기존 Delta 테이블이 필요합니다.
-- `delta_changes.py`는 `data/demo/delta_orders`를 사용하므로 기본 배치의 Silver 테이블을 준비하거나 갱신하지 않습니다.
+첫 배치가 성공한 뒤에는 다음 명령 하나로 현재 DB의 주문·상품 내보내기와 Delta 배치를 실행합니다.
 
-새 환경에서 Silver 테이블을 준비하지 않았다면 웹 화면과 Python 실습, 주문 집계 벤치마크, 별도 Delta 실습부터 실행할 수 있습니다.
+```bash
+python manage.py refresh_analytics --cores 2
+```
+
+명령은 갱신 전후의 분석 주문 수를 출력합니다. `--cores`는 `1`, `2`를 지원하고, `--data-dir`의 기본값은 `data/`입니다. 내부적으로 `export_analytics`와 `run_spark_batch --delta`를 순서대로 호출합니다.
+
+현재 구현은 시작할 때 기존 `marts/dashboard.json`의 `overall.order_count`를 읽습니다. `seed_demo`가 만든 초기 JSON에는 `overall`이 없으므로 최초 실행이나 초기화 직후에는 앞의 두 단계 명령으로 먼저 집계해야 합니다. 사용자 지정 데이터 경로도 기존 집계 JSON이 필요합니다.
+
+### 배치의 입력과 저장 방식
+
+- 전체 지표와 상품별·일자별·분류별 매출은 내보낸 주문 CSV를 기준으로 계산합니다.
+- 원본 주문을 Bronze Parquet에 덮어쓴 뒤, 이를 다시 읽어 `amount`, `ordered_at`, `order_date`를 정제하고 Silver Delta 테이블에 덮어씁니다.
+- 최상위 `order_count`와 `preview`는 이번 배치에서 저장한 Silver 테이블을 다시 읽어 생성합니다. 기존 Silver 테이블을 수동으로 준비할 필요는 없습니다.
+- 기본 배치는 매번 전체 스냅샷을 처리합니다. 증분 처리나 이벤트 스트리밍은 구현되어 있지 않습니다.
+- `delta_changes.py`는 별도 `data/demo/delta_orders`를 사용하며 기본 Silver 테이블과 대시보드를 갱신하지 않습니다.
+- 사용자 지정 `--data-dir`에 결과를 저장해도 웹 화면은 항상 기본 `data/marts/dashboard.json`을 읽습니다.
+
+### 주문 이벤트 JSON 내보내기
+
+```bash
+python manage.py export_order_event --order-id 1
+```
+
+DB에 존재하는 주문 ID를 지정합니다. `data/events/order-created.json`에 `event_type`, `order_id`, `product_id`, `quantity`, `unit_price`, `amount`, `ordered_at`을 저장합니다. 파일은 실행할 때마다 한 건으로 덮어쓰며, 메시지 브로커 전송이나 대시보드 갱신은 수행하지 않습니다.
 
 ### 대시보드 구성과 결과 데이터
 
@@ -179,6 +202,22 @@ MySQL 상품·주문 + 상품 페이지 접속 로그
 python manage.py export_analytics
 python manage.py run_spark_batch --script spark_jobs/benchmark_sales.py --cores 2
 ```
+
+### 대용량 합성 데이터와 코어 수 비교
+
+Python 표준 라이브러리로 주문 100만 건, 상품 100개, 접속 로그 1건을 별도 경로에 생성합니다. `--rows`와 `--data-dir`의 기본값은 각각 `1000000`, `data-large`입니다.
+
+```bash
+python spark_jobs/generate_orders.py --rows 1000000 --data-dir data-large
+python manage.py run_spark_batch --script spark_jobs/benchmark_sales.py --data-dir data-large --cores 1
+python manage.py run_spark_batch --script spark_jobs/benchmark_sales.py --data-dir data-large --cores 2
+python manage.py run_spark_batch --script spark_jobs/benchmark_sales.py --data-dir data-large --cores 4
+python manage.py run_spark_batch --script spark_jobs/benchmark_sales.py --data-dir data-large --cores 8
+```
+
+생성기는 지정 경로의 `raw/orders.csv`, `products.jsonl`, `access.log`를 덮어씁니다. `data-large/`는 Git 추적에서 제외됩니다. 생성 후 같은 경로로 `export_analytics`를 실행하면 합성 데이터가 DB 내보내기 결과로 바뀝니다.
+
+벤치마크는 파일 파티션 목표 크기를 8 MiB, 최소 파티션 수 설정을 4로 지정하고, 실제 입력 파티션 수와 실행 계획을 출력합니다. `--cores`는 `--total-executor-cores`로 전달되며 master나 입력 파티션 수를 설정하지 않습니다. 코어 수 비교 시 Spark 실행 환경이 해당 설정을 적용하는지 확인해야 합니다. 직접 로컬 제출한다면 `--master 'local[1]'`, `--master 'local[2]'`처럼 실행 스레드 수를 바꿉니다.
 
 ## Delta 변경 이력 실습
 
@@ -233,13 +272,15 @@ python manage.py run_spark_batch --script spark_jobs/map_reduce_demo.py --cores 
 order_insight/       Django 설정, 루트 URL, 공통 템플릿
 shop/                상품·주문 모델, 화면, 실습 fixture
 analytics/           대시보드 화면 및 데이터 관리 명령
-spark_jobs/          매출 배치, 벤치마크, Map/Reduce 및 Delta 변경 실습
+spark_jobs/          매출 배치, 합성 데이터 생성, 벤치마크, Map/Reduce·Delta 실습
 serialize/           Python 부분 집계와 병렬 처리 가정 계산 실습
 data/raw/            Spark 입력 CSV·JSONL 및 접속 로그
 data/marts/          대시보드용 처리 결과 JSON
 data/lake/bronze/    원본 주문 Parquet 저장 경로
-data/lake/silver/    기본 배치가 읽는 기존 주문 Delta 테이블
+data/lake/silver/    기본 배치가 생성·갱신하는 정제 주문 Delta 테이블
 data/demo/           별도 Delta 변경 이력 실습 데이터
+data/events/         주문 한 건의 이벤트 JSON
+data-large/          대용량 합성 데이터 및 실험 결과(Git 제외)
 manage.py            Django 관리 명령 진입점
 requirements.txt    Python 의존성
 ```
@@ -261,6 +302,7 @@ python manage.py test
 | MySQL 연결 실패 | MySQL 실행 여부, 데이터베이스·계정, `.env`의 접속 정보 확인 |
 | 상품 페이지에서 접속 로그 경로 오류 | 최초 실행 시 `seed_demo`로 `data/raw/access.log` 준비 |
 | Delta 데이터 소스를 찾지 못함 | `--delta` 옵션과 호환되는 `DELTA_PACKAGE` 설정 확인 |
-| Silver 경로가 없거나 Delta 테이블이 아니라는 오류 | `data/lake/silver/orders`의 기존 Delta 테이블 준비 여부 확인 |
-| 새 주문이 대시보드에 보이지 않음 | 내보내기·배치 완료 여부 확인. 미리보기는 별도로 Silver 데이터 상태 확인 |
+| `refresh_analytics` 실행 시 `KeyError: 'overall'` 또는 파일 없음 | `export_analytics`와 `run_spark_batch --delta`로 최초 집계 실행 |
+| Silver 저장·조회 실패 | `--delta`, Delta 패키지 호환성, 데이터 경로의 쓰기 권한과 기존 테이블 상태 확인 |
+| 새 주문이 대시보드에 보이지 않음 | 내보내기·배치 완료 여부와 기본 `data/` 경로 사용 여부 확인. 미리보기는 주문 ID 오름차순 10건만 표시 |
 | 대시보드 JSON 파일 오류 | `data/marts/dashboard.json` 존재 여부와 JSON 형식 확인. 초기화가 목적일 때만 `seed_demo` 재실행 |

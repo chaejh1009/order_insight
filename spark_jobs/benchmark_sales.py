@@ -36,6 +36,9 @@ result = summary_df.collect()
 elapsed = perf_counter() - started
 
 print("read_and_aggregate_seconds =", round(elapsed, 3))
+print("product_count =", len(result))
+print("order_count =", sum(row.order_count for row in result))
+print("revenue =", sum(row.revenue for row in result))
 print("input_partitions =", orders.rdd.getNumPartitions())
 print(sorted((row.product_id, row.order_count, row.revenue) for row in result))
 summary_df.explain("formatted")
